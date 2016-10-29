@@ -1,9 +1,11 @@
 var express = require('express');
 var path = require('path');
 var favicon = require('serve-favicon');
+
 var logger = require('morgan');
 var cookieParser = require('cookie-parser');
 var bodyParser = require('body-parser');
+var http = require('http');
 
 var routes = require('./routes/index');
 var users = require('./routes/users');
@@ -56,5 +58,44 @@ app.use(function(err, req, res, next) {
   });
 });
 
+var pollingHost = '133.242.233.24'
+var pollingPort = 3000;
+var pollingPath = '/zones/1'
+var checkStatus = function(callback) {
+  return http.get({
+    host: pollingHost,
+    port: pollingPort,
+    path: pollingPath,
+    headers: {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json'
+    }
+  }, function(response) {
+    var body = '';
+    response.on('data', function(d) {
+      body += d;
+    });
+    response.on('end', function() {
+      var parsed = JSON.parse(body);
+      console.log(parsed)
+      var diff = parsed.target_temperature - parsed.current_temperature;
+
+      if (diff < 1 && diff > -1) {
+        console.log('good')
+      } else if (diff > 1) {
+        console.log('too cool')
+      } else if (diff < -1) {
+        console.log('too hot')
+      }
+      callback && callback();
+    });
+  })
+}
+
+setInterval(function() {
+  console.log('setInterval');
+  checkStatus();
+// }, 5000)
+}, 1000)
 
 module.exports = app;
