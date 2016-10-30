@@ -58,11 +58,12 @@ app.use(function(err, req, res, next) {
   });
 });
 
+var isGood = {}
+
 var checkStatus = function(zoneId, lightId, callback) {
   var pollingHost = '133.242.233.24';
   var pollingPort = 3000;
   var pollingPath = '/zones/' + zoneId;
-  var isGood = true;
   return http.get({
     host: pollingHost,
     port: pollingPort,
@@ -79,27 +80,31 @@ var checkStatus = function(zoneId, lightId, callback) {
     response.on('end', function() {
       var parsed = null;
       try {
+        console.log(body);
         parsed = JSON.parse(body);
       }
       catch (e) {
         console.log('parse error');
         return;
       }
-      console.log(parsed);
       var diff = parsed.target_temperature - parsed.current_temperature;
+      console.log(zoneId + ' : diff : ' + diff);
 
       if (diff < 1 && diff > -1) {
-        if (!isGood) {
-          isGood = true;
+        if (!isGood[zoneId]) {
           changeColor(25500, lightId);
-        }
-        console.log('good');
+          console.log('change color to good');
+        };
+        isGood[zoneId] = true;
+        console.log(zoneId + 'good');
       } else {
-        if (isGood) {
-          isGood = false;
+        if (isGood[zoneId]) {
+          console.log(isGood[zoneId]);
           changeColor(12750, lightId);
-        }
-        console.log('bad');
+          console.log('change color to bad');
+        };
+        console.log(zoneId + 'bad');
+        isGood[zoneId] = false;
       }
       callback && callback();
     });
@@ -129,13 +134,13 @@ var changeColor = function(color, lightId) {
     response.on('end', function() {
       var parsed = null;
       try {
+        console.log(body);
         parsed = JSON.parse(body);
       }
       catch (e) {
         console.log('parse error');
         return;
       }
-      console.log(parsed);
     });
   })
   req.end(json);
@@ -143,12 +148,12 @@ var changeColor = function(color, lightId) {
 
 setInterval(function() {
   console.log('setInterval');
-//  checkStatus(1);
+  checkStatus(1, 1);
 // }, 5000)
 }, 1000)
 
 // changeColor(46920)
 // changeColor(12750, 1);
-changeColor(25500, 1);
+// changeColor(25500, 1);
 
 module.exports = app;
