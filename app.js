@@ -58,10 +58,11 @@ app.use(function(err, req, res, next) {
   });
 });
 
-var pollingHost = '133.242.233.24'
-var pollingPort = 3000;
-var pollingPath = '/zones/1'
-var checkStatus = function(callback) {
+var checkStatus = function(zoneId, lightId, callback) {
+  var pollingHost = '133.242.233.24';
+  var pollingPort = 3000;
+  var pollingPath = '/zones/' + zoneId;
+  var isGood = true;
   return http.get({
     host: pollingHost,
     port: pollingPort,
@@ -76,26 +77,78 @@ var checkStatus = function(callback) {
       body += d;
     });
     response.on('end', function() {
-      var parsed = JSON.parse(body);
-      console.log(parsed)
+      var parsed = null;
+      try {
+        parsed = JSON.parse(body);
+      }
+      catch (e) {
+        console.log('parse error');
+        return;
+      }
+      console.log(parsed);
       var diff = parsed.target_temperature - parsed.current_temperature;
 
       if (diff < 1 && diff > -1) {
-        console.log('good')
-      } else if (diff > 1) {
-        console.log('too cool')
-      } else if (diff < -1) {
-        console.log('too hot')
+        if (!isGood) {
+          isGood = true;
+          changeColor(25500, lightId);
+        }
+        console.log('good');
+      } else {
+        if (isGood) {
+          isGood = false;
+          changeColor(12750, lightId);
+        }
+        console.log('bad');
       }
       callback && callback();
     });
   })
 }
 
+var changeColor = function(color, lightId) {
+  var host = '192.168.2.249';
+  var port = 80;
+  var path = '/api/JaWHEMGTOY9QryJr1sS1xCI1rI5wKimUUNOPJNNP/lights/' + lightId + '/state';
+  // curl -X PUT -H 'Accept:application/json' -d @d.json http://192.168.2.249/api/JaWHEMGTOY9QryJr1sS1xCI1rI5wKimUUNOPJNNP/lights/1/state
+  var json = JSON.stringify({ on: true, sat: 254, bri: 254, hue: color });
+  var req = http.request({
+    method: 'PUT',
+    host: host,
+    port: port,
+    path: path,
+    headers: {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json'
+    }
+  }, function(response) {
+    var body = '';
+    response.on('data', function(d) {
+      body += d;
+    });
+    response.on('end', function() {
+      var parsed = null;
+      try {
+        parsed = JSON.parse(body);
+      }
+      catch (e) {
+        console.log('parse error');
+        return;
+      }
+      console.log(parsed);
+    });
+  })
+  req.end(json);
+}
+
 setInterval(function() {
   console.log('setInterval');
-  checkStatus();
+//  checkStatus(1);
 // }, 5000)
 }, 1000)
+
+// changeColor(46920)
+// changeColor(12750, 1);
+changeColor(25500, 1);
 
 module.exports = app;
